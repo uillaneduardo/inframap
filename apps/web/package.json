@@ -1,0 +1,29 @@
+{
+  "name": "@inframap/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@inframap/domain": "*",
+    "@inframap/editor-core": "*",
+    "@inframap/i18n": "*",
+    "@inframap/project-schema": "*",
+    "@inframap/ui": "*",
+    "@inframap/validation": "*",
+    "dexie": "^4.0.0",
+    "dexie-react-hooks": "^1.1.0",
+    "i18next": "^26.3.6",
+    "konva": "^10.3.0",
+    "lucide-react": "^0.546.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "react-i18next": "^17.0.11",
+    "react-konva": "^19.2.5",
+    "react-router-dom": "^7.18.1",
+    "zod": "^3.24.2",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2"
+  }
+}
