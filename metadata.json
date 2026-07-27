@@ -1,6 +1,0 @@
-{
-  "name": "InfraMap",
-  "description": "Plataforma de documentação e diagramação visual de infraestrutura de TI, datacenters e redes.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

@@ -9,6 +9,7 @@
     "@inframap/domain": "*"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0"
   }
 }

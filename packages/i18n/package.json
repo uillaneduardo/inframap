@@ -10,6 +10,7 @@
     "react-i18next": "^17.0.11"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0"
   }
 }

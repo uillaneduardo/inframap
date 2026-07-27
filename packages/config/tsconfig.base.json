@@ -11,6 +11,7 @@
     "useDefineForClassFields": false,
     "allowJs": true,
     "jsx": "react-jsx",
+    "resolveJsonModule": true,
     "esModuleInterop": true
   }
 }

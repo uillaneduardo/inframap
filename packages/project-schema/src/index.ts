@@ -104,23 +104,25 @@ export type ProjectDocumentInferred = z.infer<typeof ProjectDocumentSchema>;
 /**
  * Migrate older raw project documents to current schema version
  */
-export function migrateProjectDocument(raw: any): any {
-  if (!raw || typeof raw !== 'object') {
+export function migrateProjectDocument(rawInput: unknown): Record<string, unknown> {
+  if (!rawInput || typeof rawInput !== 'object') {
     throw new Error('Documento de projeto inválido (não é um objeto).');
   }
 
-  let version = raw.schemaVersion || 0;
+  const raw = { ...(rawInput as Record<string, unknown>) };
+  let version = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 0;
 
   // Handle Legacy format from previous simple versions
   if (version === 0) {
-    const unit: ProjectUnit = ['mm', 'cm', 'm'].includes(raw.unit) ? raw.unit : 'mm';
+    const rawUnit = typeof raw.unit === 'string' ? raw.unit : 'mm';
+    const unit: ProjectUnit = ['mm', 'cm', 'm'].includes(rawUnit) ? (rawUnit as ProjectUnit) : 'mm';
     const width = typeof raw.width === 'number' && raw.width > 0 ? raw.width : 1000;
     const height = typeof raw.height === 'number' && raw.height > 0 ? raw.height : 1000;
     const gridSize = typeof raw.gridSize === 'number' && raw.gridSize > 0 ? raw.gridSize : 10;
 
-    let canonicalWidth = raw.canonicalWidth;
-    let canonicalHeight = raw.canonicalHeight;
-    let canonicalGridSize = raw.canonicalGridSize;
+    let canonicalWidth = typeof raw.canonicalWidth === 'number' ? raw.canonicalWidth : 0;
+    let canonicalHeight = typeof raw.canonicalHeight === 'number' ? raw.canonicalHeight : 0;
+    let canonicalGridSize = typeof raw.canonicalGridSize === 'number' ? raw.canonicalGridSize : 0;
 
     if (!canonicalWidth) {
       canonicalWidth = unit === 'cm' ? width * 10 : unit === 'm' ? width * 1000 : width;
@@ -133,23 +135,24 @@ export function migrateProjectDocument(raw: any): any {
     }
 
     const defaultLayerId = crypto.randomUUID();
-    const layers = Array.isArray(raw.layers) && raw.layers.length > 0
-      ? raw.layers
+    const rawLayers = Array.isArray(raw.layers) ? raw.layers : [];
+    const layers = rawLayers.length > 0
+      ? rawLayers
       : [{ id: defaultLayerId, name: 'Camada Padrão', visible: true, locked: false, order: 0 }];
 
-    raw = {
+    const migrated: Record<string, unknown> = {
       schemaVersion: 1,
-      id: raw.id || crypto.randomUUID(),
+      id: typeof raw.id === 'string' ? raw.id : crypto.randomUUID(),
       organizationId: raw.organizationId || null,
       ownerId: raw.ownerId || null,
-      name: raw.name || 'Projeto Sem Nome',
-      description: raw.description || '',
+      name: typeof raw.name === 'string' ? raw.name : 'Projeto Sem Nome',
+      description: typeof raw.description === 'string' ? raw.description : '',
       unit,
       canonicalWidth,
       canonicalHeight,
-      createdAt: raw.createdAt || new Date().toISOString(),
-      updatedAt: raw.updatedAt || new Date().toISOString(),
-      version: raw.version || 1,
+      createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+      updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString(),
+      version: typeof raw.version === 'number' ? raw.version : 1,
       settings: {
         unit,
         width,
@@ -166,6 +169,7 @@ export function migrateProjectDocument(raw: any): any {
       viewport: raw.viewport || { x: 0, y: 0, scale: 1 },
     };
     version = 1;
+    return migrated;
   }
 
   return raw;
@@ -183,29 +187,50 @@ export interface ValidationError {
 
 export type JsonValidationResult = ValidationSuccess | ValidationError;
 
+export const CreateProjectFormSchema = z.object({
+  name: z.string().min(2, 'O nome do projeto deve ter no mínimo 2 caracteres.').max(100, 'O nome não pode exceder 100 caracteres.'),
+  description: z.string().max(500, 'A descrição não pode exceder 500 caracteres.').optional(),
+  unit: z.enum(['mm', 'cm', 'm']),
+  width: z.number().positive('A largura deve ser um valor positivo.'),
+  height: z.number().positive('A altura deve ser um valor positivo.'),
+  gridSize: z.number().positive('O tamanho da grade deve ser um valor positivo.'),
+});
+export type CreateProjectFormData = z.infer<typeof CreateProjectFormSchema>;
+
+export const LayerFormSchema = z.object({
+  name: z.string().min(1, 'O nome da camada é obrigatório.').max(50, 'Nome de camada muito longo.'),
+});
+export type LayerFormData = z.infer<typeof LayerFormSchema>;
+
 export function validateAndParseProjectJson(
   jsonString: string,
   generateNewIds = false
 ): JsonValidationResult {
   try {
-    const parsedJson = JSON.parse(jsonString);
+    const parsedJson: unknown = JSON.parse(jsonString);
     const migrated = migrateProjectDocument(parsedJson);
 
     if (generateNewIds) {
       migrated.id = crypto.randomUUID();
       const layerIdMap = new Map<string, string>();
-      migrated.layers = migrated.layers.map((l: any) => {
+      const layers = (Array.isArray(migrated.layers) ? migrated.layers : []) as Array<Record<string, unknown>>;
+
+      migrated.layers = layers.map((l) => {
+        const oldId = typeof l.id === 'string' ? l.id : crypto.randomUUID();
         const newId = crypto.randomUUID();
-        layerIdMap.set(l.id, newId);
+        layerIdMap.set(oldId, newId);
         return { ...l, id: newId };
       });
 
-      const firstLayerId = migrated.layers[0]?.id || crypto.randomUUID();
+      const firstLayerId = ((migrated.layers as Array<{ id: string }>)[0]?.id) || crypto.randomUUID();
+      const objects = (Array.isArray(migrated.objects) ? migrated.objects : []) as Array<Record<string, unknown>>;
 
-      migrated.objects = migrated.objects.map((o: any) => ({
+      migrated.objects = objects.map((o) => ({
         ...o,
         id: crypto.randomUUID(),
-        layerId: layerIdMap.get(o.layerId) || firstLayerId,
+        layerId: typeof o.layerId === 'string' && layerIdMap.has(o.layerId)
+          ? layerIdMap.get(o.layerId)!
+          : firstLayerId,
       }));
     }
 
@@ -222,10 +247,11 @@ export function validateAndParseProjectJson(
       success: true,
       document: result.data as ProjectDocument,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Sintaxe inválida';
     return {
       success: false,
-      error: `Falha na leitura do arquivo JSON: ${err?.message || 'Sintaxe inválida'}`,
+      error: `Falha na leitura do arquivo JSON: ${message}`,
     };
   }
 }
