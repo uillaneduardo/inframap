@@ -34,11 +34,14 @@ inframap/
    - Armazenamento em **Dexie.js / IndexedDB** (`IndexedDbProjectRepository`).
    - Operações de criação, listagem, atualização, duplicação e exclusão de projetos localmente.
 
-2. **Editor Canvas Visual**:
-   - Canvas 2D interativo com Zoom, Pan e alinhamento à grade (Grid Snap).
-   - Manipulação e seleção de formas geométricas (Retângulo, Círculo, Linha, Texto).
+2. **Editor Canvas Visual e Ferramentas**:
+   - Ferramentas com responsabilidades separadas: Selecionar (`V`), Mover objeto (`M`), Mover tela/Pan (`H`), Retângulo (`R`), Círculo (`C`), Linha (`L`) e Texto (`T`).
+   - Desenho técnico por clique e arraste (`pointerdown` -> `pointermove` com preview tracejado -> `pointerup` para confirmar) com cálculo exato em milímetros (world coordinates).
+   - Validação de limite mínimo (2mm) para evitar a criação acidental de objetos de tamanho zero.
+   - Separação entre visibilidade da grade (`showGrid`) e encaixe/snap na grade (`snapToGrid`), com snap desativado por padrão.
+   - Suporte a tecla `Alt` para ignorar o snap temporariamente e tecla `Shift` para manter proporção e ângulos fixos.
    - Gerenciamento de camadas (Layers) com suporte a alteração de ordem, visibilidade e bloqueio.
-   - Histórico de ações com desfazer e refazer (Ctrl+Z, Ctrl+Y, atalhos de navegação).
+   - Histórico de ações com desfazer e refazer (Ctrl+Z, Ctrl+Y) gerando exatamente uma entrada por criação ou movimento.
    - Painel de propriedades para ajuste de posição, tamanho, rotação, cores e opacidade.
 
 3. **Importação e Exportação**:
