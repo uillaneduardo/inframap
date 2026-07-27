@@ -8,6 +8,7 @@ interface EditorState {
   selectedIds: string[];
   activeLayerId: string | null;
   viewport: Viewport;
+  showGrid: boolean;
   snapToGrid: boolean;
   history: HistoryStack<CanvasObject[]>;
   canUndo: boolean;
@@ -23,6 +24,7 @@ interface EditorState {
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
+  toggleShowGrid: () => void;
   toggleSnapToGrid: () => void;
 
   // History Actions
@@ -37,7 +39,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectedIds: [],
   activeLayerId: null,
   viewport: { x: 0, y: 0, scale: 1 },
-  snapToGrid: true,
+  showGrid: true,
+  snapToGrid: false,
   history: new HistoryStack<CanvasObject[]>(50),
   canUndo: false,
   canRedo: false,
@@ -84,6 +87,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   resetZoom: () => {
     set({ viewport: { x: 0, y: 0, scale: 1 } });
   },
+
+  toggleShowGrid: () => set((state) => ({ showGrid: !state.showGrid })),
 
   toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
 

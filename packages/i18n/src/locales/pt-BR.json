@@ -38,8 +38,9 @@
   },
   "editor": {
     "tools": {
-      "select": "Seleção (V)",
-      "pan": "Mover Canvas (H)",
+      "select": "Selecionar (V)",
+      "move": "Mover objeto (M)",
+      "pan": "Mover tela (H)",
       "rectangle": "Retângulo (R)",
       "circle": "Círculo (C)",
       "line": "Linha (L)",
@@ -85,7 +86,8 @@
       "saved": "Salvo localmente",
       "error": "Erro ao salvar",
       "zoom": "Zoom",
-      "snapToGrid": "Snap Grade",
+      "showGrid": "Exibir grade",
+      "snapToGrid": "Encaixar na grade",
       "fitToScreen": "Enquadrar"
     },
     "actions": {

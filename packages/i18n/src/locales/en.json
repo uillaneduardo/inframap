@@ -39,7 +39,8 @@
   "editor": {
     "tools": {
       "select": "Select (V)",
-      "pan": "Pan Canvas (H)",
+      "move": "Move object (M)",
+      "pan": "Pan canvas (H)",
       "rectangle": "Rectangle (R)",
       "circle": "Circle (C)",
       "line": "Line (L)",
@@ -85,7 +86,8 @@
       "saved": "Saved locally",
       "error": "Error saving",
       "zoom": "Zoom",
-      "snapToGrid": "Snap Grid",
+      "showGrid": "Show grid",
+      "snapToGrid": "Snap to grid",
       "fitToScreen": "Fit to Screen"
     },
     "actions": {

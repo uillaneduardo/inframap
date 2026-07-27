@@ -9,6 +9,7 @@ import {
   FileUp,
   Image,
   MousePointer,
+  Move,
   Hand,
   Square,
   Circle as CircleIcon,
@@ -55,6 +56,8 @@ export const EditorPage: React.FC = () => {
     zoomIn,
     zoomOut,
     resetZoom,
+    showGrid,
+    toggleShowGrid,
     snapToGrid,
     toggleSnapToGrid,
     selectedIds,
@@ -86,6 +89,7 @@ export const EditorPage: React.FC = () => {
       }
 
       if (e.key === 'v' || e.key === 'V') setActiveTool('select');
+      else if (e.key === 'm' || e.key === 'M') setActiveTool('move');
       else if (e.key === 'h' || e.key === 'H') setActiveTool('pan');
       else if (e.key === 'r' || e.key === 'R') setActiveTool('rectangle');
       else if (e.key === 'c' || e.key === 'C') setActiveTool('circle');
@@ -216,6 +220,7 @@ export const EditorPage: React.FC = () => {
 
   const toolButtons: { tool: ToolType; label: string; icon: React.ReactNode }[] = [
     { tool: 'select', label: t('editor.tools.select'), icon: <MousePointer className="w-4 h-4" /> },
+    { tool: 'move', label: t('editor.tools.move'), icon: <Move className="w-4 h-4" /> },
     { tool: 'pan', label: t('editor.tools.pan'), icon: <Hand className="w-4 h-4" /> },
     { tool: 'rectangle', label: t('editor.tools.rectangle'), icon: <Square className="w-4 h-4" /> },
     { tool: 'circle', label: t('editor.tools.circle'), icon: <CircleIcon className="w-4 h-4" /> },
@@ -377,6 +382,16 @@ export const EditorPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleShowGrid}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors ${
+              showGrid ? 'bg-slate-800 text-slate-200 font-bold' : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            <Grid className="w-3 h-3" />
+            <span>{t('editor.status.showGrid')}</span>
+          </button>
+
           <button
             onClick={toggleSnapToGrid}
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors ${
