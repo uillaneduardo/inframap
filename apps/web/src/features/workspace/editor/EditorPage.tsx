@@ -1,35 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import {
-  ArrowLeft,
-  Undo2,
-  Redo2,
-  FileDown,
-  FileUp,
-  Image,
-  MousePointer,
-  Move,
-  Hand,
-  Square,
-  Circle as CircleIcon,
-  Minus,
-  Type,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
-  Grid,
-  CheckCircle2,
-  RefreshCw,
-  AlertTriangle,
-  FileCheck,
-} from 'lucide-react';
-import { Tooltip, LoadingState, ErrorState } from '@inframap/ui';
-import { ToolType, formatUnitValue } from '@inframap/editor-core';
-import { validateAndParseProjectJson, serializeProjectDocument } from '@inframap/project-schema';
+import { LoadingState, ErrorState, Dialog, Input, Select, Button } from '@inframap/ui';
+import { ProjectUnit } from '@inframap/domain';
+import { CreateProjectFormSchema } from '@inframap/project-schema';
 import { Canvas } from './Canvas';
 import { PropertiesPanel } from './PropertiesPanel';
 import { LayersPanel } from './LayersPanel';
+import { EditorMenuBar } from './EditorMenuBar';
+import { EditorToolbar } from './EditorToolbar';
+import { EditorStatusBar } from './EditorStatusBar';
+import { PanelResizer } from './PanelResizer';
 import { useProjectStore } from '../../../stores/useProjectStore';
 import { useEditorStore } from '../../../stores/useEditorStore';
 
@@ -42,24 +23,14 @@ export const EditorPage: React.FC = () => {
     activeProject,
     isLoading,
     errorMessage,
-    saveStatus,
     loadProject,
-    importProject,
+    createProject,
     updateActiveProject,
     closeActiveProject,
   } = useProjectStore();
 
   const {
-    activeTool,
     setActiveTool,
-    viewport,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    showGrid,
-    toggleShowGrid,
-    snapToGrid,
-    toggleSnapToGrid,
     selectedIds,
     clearSelection,
     canUndo,
@@ -69,7 +40,24 @@ export const EditorPage: React.FC = () => {
     pushHistory,
   } = useEditorStore();
 
+  // Panel visibility state
+  const [showLeftPanel, setShowLeftPanel] = useState<boolean>(true);
+  const [showRightPanel, setShowRightPanel] = useState<boolean>(true);
+
+  // Cursor coordinates
   const [cursorCoords, setCursorCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // New Project Dialog State
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState<boolean>(false);
+  const [newProjectData, setNewProjectData] = useState({
+    name: 'Novo Projeto InfraMap',
+    description: 'Documentação visual de infraestrutura.',
+    unit: 'm' as ProjectUnit,
+    width: 20,
+    height: 15,
+    gridSize: 0.5,
+  });
+  const [newProjectErrors, setNewProjectErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (projectId) {
@@ -96,8 +84,15 @@ export const EditorPage: React.FC = () => {
       else if (e.key === 'l' || e.key === 'L') setActiveTool('line');
       else if (e.key === 'd' || e.key === 'D') setActiveTool('dashed-line');
       else if (e.key === 't' || e.key === 'T') setActiveTool('text');
-      else if (e.key === 'Escape') clearSelection();
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
+      else if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        e.preventDefault();
+        setShowLeftPanel((prev) => !prev);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+        e.preventDefault();
+        setShowRightPanel((prev) => !prev);
+      } else if (e.key === 'Escape') {
+        clearSelection();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
         if (!activeProject) return;
         pushHistory(activeProject.objects);
         updateActiveProject((doc) => ({
@@ -142,9 +137,34 @@ export const EditorPage: React.FC = () => {
     redo,
   ]);
 
+  const handleCreateProjectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNewProjectErrors({});
+
+    const result = CreateProjectFormSchema.safeParse(newProjectData);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        if (issue.path[0]) {
+          errors[issue.path[0].toString()] = issue.message;
+        }
+      });
+      setNewProjectErrors(errors);
+      return;
+    }
+
+    try {
+      const newProject = await createProject(result.data);
+      setIsNewProjectModalOpen(false);
+      navigate(`/workspace/projects/${newProject.id}`);
+    } catch {
+      // Store handles error state
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-950">
+      <div className="flex-1 flex items-center justify-center theme-bg-app">
         <LoadingState message="Carregando editor visual do InfraMap..." />
       </div>
     );
@@ -152,7 +172,7 @@ export const EditorPage: React.FC = () => {
 
   if (errorMessage || !activeProject) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-950 p-8">
+      <div className="flex-1 flex items-center justify-center theme-bg-app p-8">
         <ErrorState
           message={errorMessage || 'Projeto não encontrado.'}
           onRetry={() => navigate('/workspace/projects')}
@@ -161,287 +181,136 @@ export const EditorPage: React.FC = () => {
     );
   }
 
-  const handleExportJson = () => {
-    const jsonStr = serializeProjectDocument(activeProject);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${activeProject.name.replace(/\s+/g, '_').toLowerCase()}_inframap.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportPng = () => {
-    const stageContainer = document.querySelector('.konvajs-content canvas') as HTMLCanvasElement;
-    if (stageContainer) {
-      const dataUrl = stageContainer.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `${activeProject.name.replace(/\s+/g, '_').toLowerCase()}_inframap.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
-  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const content = event.target?.result as string;
-      const res = validateAndParseProjectJson(content, false);
-      if (res.success) {
-        await importProject(res.document);
-      } else {
-        alert(res.error);
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
-  const handleUndoAction = () => {
-    if (canUndo && activeProject) {
-      const prev = undo(activeProject.objects);
-      if (prev) updateActiveProject((doc) => ({ ...doc, objects: prev }));
-    }
-  };
-
-  const handleRedoAction = () => {
-    if (canRedo && activeProject) {
-      const next = redo(activeProject.objects);
-      if (next) updateActiveProject((doc) => ({ ...doc, objects: next }));
-    }
-  };
-
-  const toolButtons: { tool: ToolType; label: string; icon: React.ReactNode }[] = [
-    { tool: 'select', label: t('editor.tools.select'), icon: <MousePointer className="w-4 h-4" /> },
-    { tool: 'move', label: t('editor.tools.move'), icon: <Move className="w-4 h-4" /> },
-    { tool: 'pan', label: t('editor.tools.pan'), icon: <Hand className="w-4 h-4" /> },
-    { tool: 'rectangle', label: t('editor.tools.rectangle'), icon: <Square className="w-4 h-4" /> },
-    { tool: 'circle', label: t('editor.tools.circle'), icon: <CircleIcon className="w-4 h-4" /> },
-    { tool: 'line', label: t('editor.tools.line'), icon: <Minus className="w-4 h-4" /> },
-    {
-      tool: 'dashed-line',
-      label: t('editor.tools.dashedLine'),
-      icon: (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3">
-          <line x1="3" y1="12" x2="21" y2="12" />
-        </svg>
-      ),
-    },
-    { tool: 'text', label: t('editor.tools.text'), icon: <Type className="w-4 h-4" /> },
-  ];
-
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-3rem)] overflow-hidden bg-slate-950 text-slate-100 select-none">
-      {/* Top Header Controls */}
-      <div className="h-11 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 z-30 shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/workspace/projects')}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{t('editor.actions.backToProjects')}</span>
-          </button>
+    <div className="flex-1 flex flex-col h-screen overflow-hidden theme-bg-app theme-text-main select-none">
+      {/* 1. Desktop Top Menu Bar */}
+      <EditorMenuBar
+        showLeftPanel={showLeftPanel}
+        setShowLeftPanel={setShowLeftPanel}
+        showRightPanel={showRightPanel}
+        setShowRightPanel={setShowRightPanel}
+        onOpenNewProjectModal={() => setIsNewProjectModalOpen(true)}
+      />
 
-          <div className="h-4 w-px bg-slate-800" />
+      {/* 2. Fixed Horizontal Toolbar */}
+      <EditorToolbar />
 
-          <h2 className="text-xs font-bold text-slate-100 truncate max-w-[200px]">
-            {activeProject.name}
-          </h2>
-
-          {/* Save status badge */}
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono border">
-            {saveStatus === 'saved' && (
-              <span className="text-emerald-400 border-emerald-900/60 bg-emerald-950/40 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                {t('editor.status.saved')}
-              </span>
-            )}
-            {saveStatus === 'saving' && (
-              <span className="text-blue-400 border-blue-900/60 bg-blue-950/40 flex items-center gap-1">
-                <RefreshCw className="w-3 h-3 animate-spin text-blue-400" />
-                {t('editor.status.saving')}
-              </span>
-            )}
-            {saveStatus === 'unsaved' && (
-              <span className="text-amber-400 border-amber-900/60 bg-amber-950/40 flex items-center gap-1">
-                <FileCheck className="w-3 h-3 text-amber-400" />
-                {t('editor.status.unsaved')}
-              </span>
-            )}
-            {saveStatus === 'error' && (
-              <span className="text-red-400 border-red-900/60 bg-red-950/40 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3 text-red-400" />
-                {t('editor.status.error')}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-1">
-          <Tooltip content={t('editor.actions.undo')}>
-            <button
-              onClick={handleUndoAction}
-              disabled={!canUndo}
-              className="p-1.5 text-slate-400 hover:text-white disabled:opacity-30 rounded hover:bg-slate-800 transition-colors"
-            >
-              <Undo2 className="w-4 h-4" />
-            </button>
-          </Tooltip>
-
-          <Tooltip content={t('editor.actions.redo')}>
-            <button
-              onClick={handleRedoAction}
-              disabled={!canRedo}
-              className="p-1.5 text-slate-400 hover:text-white disabled:opacity-30 rounded hover:bg-slate-800 transition-colors"
-            >
-              <Redo2 className="w-4 h-4" />
-            </button>
-          </Tooltip>
-
-          <div className="h-4 w-px bg-slate-800 mx-1" />
-
-          <label className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer">
-            <Tooltip content="Importar JSON">
-              <FileUp className="w-4 h-4" />
-            </Tooltip>
-            <input type="file" accept=".json" className="hidden" onChange={handleImportJson} />
-          </label>
-
-          <Tooltip content={t('editor.actions.exportJson')}>
-            <button
-              onClick={handleExportJson}
-              className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors"
-            >
-              <FileDown className="w-4 h-4" />
-            </button>
-          </Tooltip>
-
-          <Tooltip content={t('editor.actions.exportPng')}>
-            <button
-              onClick={handleExportPng}
-              className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors"
-            >
-              <Image className="w-4 h-4" />
-            </button>
-          </Tooltip>
-        </div>
-      </div>
-
-      {/* Main Workspace Layout */}
+      {/* 3. Main Workspace Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Sidebar: Tools & Layers */}
-        <div className="w-56 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shrink-0">
-          <div className="p-3 border-b border-slate-800">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-              Ferramentas
-            </span>
-            <div className="grid grid-cols-2 gap-1.5">
-              {toolButtons.map((tb) => (
-                <button
-                  key={tb.tool}
-                  onClick={() => setActiveTool(tb.tool)}
-                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                    activeTool === tb.tool
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  {tb.icon}
-                  <span className="truncate">{tb.label.split(' ')[0]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Left Sidebar: Layers Panel */}
+        <PanelResizer
+          side="left"
+          defaultWidth={240}
+          minWidth={180}
+          maxWidth={360}
+          isVisible={showLeftPanel}
+          onToggleVisible={() => setShowLeftPanel((prev) => !prev)}
+        >
+          <LayersPanel />
+        </PanelResizer>
 
-          <div className="flex-1 overflow-y-auto">
-            <LayersPanel />
-          </div>
-        </div>
-
-        {/* Center Canvas */}
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-slate-950">
+        {/* Center Canvas Area - Maximized */}
+        <div className="flex-1 flex flex-col relative overflow-hidden theme-bg-canvas">
           <Canvas onCursorMove={(x, y) => setCursorCoords({ x, y })} />
         </div>
 
-        {/* Right Properties Panel */}
-        <PropertiesPanel />
+        {/* Right Sidebar: Properties Panel */}
+        <PanelResizer
+          side="right"
+          defaultWidth={260}
+          minWidth={200}
+          maxWidth={380}
+          isVisible={showRightPanel}
+          onToggleVisible={() => setShowRightPanel((prev) => !prev)}
+        >
+          <PropertiesPanel />
+        </PanelResizer>
       </div>
 
-      {/* Footer Status Bar */}
-      <div className="h-7 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-3 text-[11px] font-mono text-slate-400 z-30 shrink-0">
-        <div className="flex items-center gap-4">
-          <span>
-            X: {formatUnitValue(cursorCoords.x, activeProject.unit)}
-          </span>
-          <span>
-            Y: {formatUnitValue(cursorCoords.y, activeProject.unit)}
-          </span>
-          <span className="text-slate-500">
-            Dimensão: {formatUnitValue(activeProject.canonicalWidth, activeProject.unit)} × {formatUnitValue(activeProject.canonicalHeight, activeProject.unit)}
-          </span>
-        </div>
+      {/* 4. Desktop Bottom Status Bar */}
+      <EditorStatusBar cursorCoords={cursorCoords} />
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={toggleShowGrid}
-            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors ${
-              showGrid ? 'bg-slate-800 text-slate-200 font-bold' : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <Grid className="w-3 h-3" />
-            <span>{t('editor.status.showGrid')}</span>
-          </button>
+      {/* New Project Modal */}
+      <Dialog
+        isOpen={isNewProjectModalOpen}
+        onClose={() => setIsNewProjectModalOpen(false)}
+        title={t('projects.create.title')}
+        description={t('projects.create.description')}
+      >
+        <form onSubmit={handleCreateProjectSubmit} className="space-y-4 text-xs">
+          <Input
+            label={t('projects.create.name')}
+            value={newProjectData.name}
+            onChange={(e) => setNewProjectData({ ...newProjectData, name: e.target.value })}
+            error={newProjectErrors.name}
+            required
+          />
 
-          <button
-            onClick={toggleSnapToGrid}
-            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors ${
-              snapToGrid ? 'bg-blue-950 text-blue-400 font-bold' : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <Grid className="w-3 h-3" />
-            <span>{t('editor.status.snapToGrid')}</span>
-          </button>
+          <Input
+            label={t('projects.create.projectDescription')}
+            value={newProjectData.description}
+            onChange={(e) => setNewProjectData({ ...newProjectData, description: e.target.value })}
+            error={newProjectErrors.description}
+          />
 
-          <div className="h-3 w-px bg-slate-800" />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label={t('projects.create.unit')}
+              value={newProjectData.unit}
+              onChange={(e) => setNewProjectData({ ...newProjectData, unit: e.target.value as ProjectUnit })}
+              options={[
+                { value: 'mm', label: t('projects.units.mm') },
+                { value: 'cm', label: t('projects.units.cm') },
+                { value: 'm', label: t('projects.units.m') },
+              ]}
+            />
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={zoomOut}
-              className="p-1 hover:text-white rounded transition-colors"
-              title="Zoom out"
-            >
-              <ZoomOut className="w-3 h-3" />
-            </button>
-            <span className="min-w-[40px] text-center font-bold text-slate-200">
-              {Math.round(viewport.scale * 100)}%
-            </span>
-            <button
-              onClick={zoomIn}
-              className="p-1 hover:text-white rounded transition-colors"
-              title="Zoom in"
-            >
-              <ZoomIn className="w-3 h-3" />
-            </button>
-            <button
-              onClick={resetZoom}
-              className="p-1 hover:text-white rounded transition-colors"
-              title={t('editor.status.fitToScreen')}
-            >
-              <Maximize className="w-3 h-3" />
-            </button>
+            <Input
+              label={t('projects.create.gridSize')}
+              type="number"
+              step="any"
+              min="0.1"
+              value={newProjectData.gridSize}
+              onChange={(e) => setNewProjectData({ ...newProjectData, gridSize: parseFloat(e.target.value) || 0.1 })}
+              error={newProjectErrors.gridSize}
+              required
+            />
           </div>
-        </div>
-      </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label={t('projects.create.width')}
+              type="number"
+              step="any"
+              min="1"
+              value={newProjectData.width}
+              onChange={(e) => setNewProjectData({ ...newProjectData, width: parseFloat(e.target.value) || 1 })}
+              error={newProjectErrors.width}
+              required
+            />
+
+            <Input
+              label={t('projects.create.height')}
+              type="number"
+              step="any"
+              min="1"
+              value={newProjectData.height}
+              onChange={(e) => setNewProjectData({ ...newProjectData, height: parseFloat(e.target.value) || 1 })}
+              error={newProjectErrors.height}
+              required
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t theme-border">
+            <Button variant="outline" type="button" onClick={() => setIsNewProjectModalOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="primary" type="submit">
+              {t('projects.create.submit')}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 };

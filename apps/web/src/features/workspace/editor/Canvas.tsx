@@ -695,8 +695,8 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
         <KonvaLine
           key={`v-${index++}-${Math.round(x)}`}
           points={[x, 0, x, containerSize.height]}
-          stroke="#1e293b"
-          strokeWidth={0.5}
+          stroke="var(--grid-color)"
+          strokeWidth={0.8}
           listening={false}
         />
       );
@@ -707,8 +707,8 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
         <KonvaLine
           key={`h-${index++}-${Math.round(y)}`}
           points={[0, y, containerSize.width, y]}
-          stroke="#1e293b"
-          strokeWidth={0.5}
+          stroke="var(--grid-color)"
+          strokeWidth={0.8}
           listening={false}
         />
       );
@@ -908,7 +908,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full bg-slate-950 relative overflow-hidden select-none ${getCursorStyle()}`}
+      className={`w-full h-full theme-bg-canvas relative overflow-hidden select-none ${getCursorStyle()}`}
     >
       {/* Floating Helper Banner during Polyline Creation */}
       {(polylineSession || activeTool === 'line' || activeTool === 'dashed-line') && (

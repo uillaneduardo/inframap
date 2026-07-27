@@ -24,10 +24,10 @@ export const PropertiesPanel: React.FC = () => {
 
   if (!activeProject || selectedIds.length === 0) {
     return (
-      <div className="w-64 bg-slate-900 border-l border-slate-800 p-4 flex flex-col items-center justify-center text-center text-slate-500 select-none">
-        <SlidersHorizontal className="w-8 h-8 mb-2 opacity-40 text-slate-400" />
-        <p className="text-xs font-semibold text-slate-300">{t('editor.properties.noSelection')}</p>
-        <p className="text-[11px] text-slate-500 mt-1 max-w-[180px]">
+      <div className="flex-1 theme-bg-surface p-4 flex flex-col items-center justify-center text-center theme-text-muted select-none">
+        <SlidersHorizontal className="w-8 h-8 mb-2 opacity-40 theme-text-muted" />
+        <p className="text-xs font-semibold theme-text-main">{t('editor.properties.noSelection')}</p>
+        <p className="text-[11px] theme-text-muted mt-1 max-w-[180px]">
           {t('editor.properties.noSelectionDesc')}
         </p>
       </div>
@@ -75,10 +75,10 @@ export const PropertiesPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-64 bg-slate-900 border-l border-slate-800 flex flex-col h-full text-slate-200 select-none overflow-y-auto">
-      <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+    <div className="flex flex-col h-full theme-bg-surface theme-text-main select-none overflow-y-auto">
+      <div className="p-3 border-b theme-border flex items-center justify-between shrink-0">
+        <h3 className="text-xs font-bold uppercase tracking-wider theme-text-muted flex items-center gap-1.5">
+          <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
           {t('editor.properties.title')}
         </h3>
         <div className="flex items-center gap-1">
@@ -86,8 +86,8 @@ export const PropertiesPanel: React.FC = () => {
             onClick={() => handleUpdate((o) => ({ ...o, locked: !o.locked }))}
             className={`p-1.5 rounded transition-colors ${
               selectedObject.locked
-                ? 'text-amber-400 bg-amber-950/40'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-amber-500 bg-amber-500/10'
+                : 'theme-text-muted hover:theme-text-main'
             }`}
             title={selectedObject.locked ? 'Desbloquear' : 'Bloquear'}
           >
@@ -95,7 +95,7 @@ export const PropertiesPanel: React.FC = () => {
           </button>
           <button
             onClick={() => handleUpdate((o) => ({ ...o, visible: !o.visible }))}
-            className="p-1.5 text-slate-400 hover:text-slate-200 rounded transition-colors"
+            className="p-1.5 theme-text-muted hover:theme-text-main rounded transition-colors"
             title={selectedObject.visible ? 'Ocultar' : 'Exibir'}
           >
             {selectedObject.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -103,7 +103,7 @@ export const PropertiesPanel: React.FC = () => {
         </div>
       </div>
 
-      <div className="p-4 flex flex-col gap-4 text-xs">
+      <div className="p-3 flex flex-col gap-3 text-xs flex-1">
         {/* General Fields */}
         <Input
           label={t('editor.properties.objectName')}
@@ -112,19 +112,19 @@ export const PropertiesPanel: React.FC = () => {
         />
 
         {/* Title / Label */}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           <Input
             label={t('editor.properties.objectTitle')}
             value={selectedObject.title || ''}
             onChange={(e) => handleUpdate((o) => ({ ...o, title: e.target.value }))}
             placeholder="Ex: Switch principal, Link A, Rack 1"
           />
-          <label className="flex items-center gap-2 cursor-pointer text-slate-300 select-none mt-1">
+          <label className="flex items-center gap-2 cursor-pointer theme-text-main select-none mt-1">
             <input
               type="checkbox"
               checked={selectedObject.showTitle ?? true}
               onChange={(e) => handleUpdate((o) => ({ ...o, showTitle: e.target.checked }))}
-              className="rounded border-slate-700 bg-slate-950 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+              className="rounded border theme-border theme-bg-input text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
             />
             <span className="text-[11px]">{t('editor.properties.showTitle')}</span>
           </label>
@@ -132,8 +132,8 @@ export const PropertiesPanel: React.FC = () => {
 
         {/* Line Style for Lines */}
         {selectedObject.type === 'line' && (
-          <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-slate-300">Estilo da Linha</label>
+          <div className="flex flex-col gap-1">
+            <label className="font-semibold text-[11px] theme-text-muted">Estilo da Linha</label>
             <select
               value={(selectedObject as LineObject).lineStyle || 'solid'}
               onChange={(e) =>
@@ -142,7 +142,7 @@ export const PropertiesPanel: React.FC = () => {
                   lineStyle: e.target.value as 'solid' | 'dashed',
                 }))
               }
-              className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+              className="theme-bg-input border theme-border rounded px-2 py-1.5 text-xs theme-text-main focus:outline-none focus:border-blue-500"
             >
               <option value="solid">Contínua</option>
               <option value="dashed">Pontilhada</option>
@@ -230,7 +230,7 @@ export const PropertiesPanel: React.FC = () => {
               value={(selectedObject as TextObject).text}
               onChange={(e) => handleUpdate((o) => ({ ...o, text: e.target.value }))}
             />
-            <Button variant="outline" size="sm" onClick={handleStartTextEdit} className="mt-1">
+            <Button variant="outline" size="sm" onClick={handleStartTextEdit} className="mt-0.5">
               <Edit3 className="w-3.5 h-3.5" />
               <span>{t('editor.properties.actions.editText')}</span>
             </Button>
@@ -263,29 +263,29 @@ export const PropertiesPanel: React.FC = () => {
 
         {/* Colors */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-slate-300">{t('editor.properties.fill')}</label>
-            <div className="flex items-center gap-2 border border-slate-700 bg-slate-950 rounded p-1">
+          <div className="flex flex-col gap-1">
+            <label className="font-semibold text-[11px] theme-text-muted">{t('editor.properties.fill')}</label>
+            <div className="flex items-center gap-2 border theme-border theme-bg-input rounded p-1">
               <input
                 type="color"
                 value={selectedObject.fill === 'transparent' ? '#ffffff' : selectedObject.fill}
                 onChange={(e) => handleUpdate((o) => ({ ...o, fill: e.target.value }))}
-                className="w-6 h-6 border-0 bg-transparent cursor-pointer"
+                className="w-5 h-5 border-0 bg-transparent cursor-pointer"
               />
-              <span className="font-mono text-[10px] text-slate-300 uppercase">{selectedObject.fill}</span>
+              <span className="font-mono text-[10px] theme-text-main uppercase truncate">{selectedObject.fill}</span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-slate-300">{t('editor.properties.stroke')}</label>
-            <div className="flex items-center gap-2 border border-slate-700 bg-slate-950 rounded p-1">
+          <div className="flex flex-col gap-1">
+            <label className="font-semibold text-[11px] theme-text-muted">{t('editor.properties.stroke')}</label>
+            <div className="flex items-center gap-2 border theme-border theme-bg-input rounded p-1">
               <input
                 type="color"
                 value={selectedObject.stroke === 'transparent' ? '#000000' : selectedObject.stroke}
                 onChange={(e) => handleUpdate((o) => ({ ...o, stroke: e.target.value }))}
-                className="w-6 h-6 border-0 bg-transparent cursor-pointer"
+                className="w-5 h-5 border-0 bg-transparent cursor-pointer"
               />
-              <span className="font-mono text-[10px] text-slate-300 uppercase">{selectedObject.stroke}</span>
+              <span className="font-mono text-[10px] theme-text-main uppercase truncate">{selectedObject.stroke}</span>
             </div>
           </div>
         </div>
@@ -318,7 +318,7 @@ export const PropertiesPanel: React.FC = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-slate-800">
+        <div className="flex flex-col gap-2 mt-2 pt-3 border-t theme-border">
           <Button variant="outline" size="sm" onClick={handleDuplicate}>
             <Copy className="w-3.5 h-3.5" />
             <span>{t('editor.properties.actions.duplicate')}</span>
