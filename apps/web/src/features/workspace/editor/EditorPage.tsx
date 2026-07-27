@@ -94,6 +94,7 @@ export const EditorPage: React.FC = () => {
       else if (e.key === 'r' || e.key === 'R') setActiveTool('rectangle');
       else if (e.key === 'c' || e.key === 'C') setActiveTool('circle');
       else if (e.key === 'l' || e.key === 'L') setActiveTool('line');
+      else if (e.key === 'd' || e.key === 'D') setActiveTool('dashed-line');
       else if (e.key === 't' || e.key === 'T') setActiveTool('text');
       else if (e.key === 'Escape') clearSelection();
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
@@ -225,6 +226,15 @@ export const EditorPage: React.FC = () => {
     { tool: 'rectangle', label: t('editor.tools.rectangle'), icon: <Square className="w-4 h-4" /> },
     { tool: 'circle', label: t('editor.tools.circle'), icon: <CircleIcon className="w-4 h-4" /> },
     { tool: 'line', label: t('editor.tools.line'), icon: <Minus className="w-4 h-4" /> },
+    {
+      tool: 'dashed-line',
+      label: t('editor.tools.dashedLine'),
+      icon: (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3">
+          <line x1="3" y1="12" x2="21" y2="12" />
+        </svg>
+      ),
+    },
     { tool: 'text', label: t('editor.tools.text'), icon: <Type className="w-4 h-4" /> },
   ];
 

@@ -4,6 +4,8 @@ export interface BaseCanvasObject {
   id: string;
   type: CanvasObjectType;
   name: string;
+  title?: string;
+  showTitle?: boolean;
   layerId: string;
   x: number; // In mm (canonical)
   y: number; // In mm (canonical)
@@ -31,7 +33,8 @@ export interface CircleObject extends BaseCanvasObject {
 
 export interface LineObject extends BaseCanvasObject {
   type: 'line';
-  points: [number, number, number, number]; // [x1, y1, x2, y2] relative to (x, y) in mm
+  points: number[]; // [x1, y1, x2, y2, x3, y3, ...] relative to (x, y) in mm
+  lineStyle?: 'solid' | 'dashed';
 }
 
 export interface TextObject extends BaseCanvasObject {

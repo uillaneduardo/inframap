@@ -1,11 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Lock, Unlock, Eye, EyeOff, Trash2, Copy, SlidersHorizontal } from 'lucide-react';
+import { Lock, Unlock, Eye, EyeOff, Trash2, Copy, SlidersHorizontal, Edit3 } from 'lucide-react';
 import { Input, Button } from '@inframap/ui';
 import {
   CanvasObject,
   RectangleObject,
   CircleObject,
+  LineObject,
   TextObject,
 } from '@inframap/domain';
 import {
@@ -67,6 +68,12 @@ export const PropertiesPanel: React.FC = () => {
     }));
   };
 
+  const handleStartTextEdit = () => {
+    window.dispatchEvent(
+      new CustomEvent('inframap:edit-text', { detail: { objectId: selectedObject.id } })
+    );
+  };
+
   return (
     <div className="w-64 bg-slate-900 border-l border-slate-800 flex flex-col h-full text-slate-200 select-none overflow-y-auto">
       <div className="p-3 border-b border-slate-800 flex items-center justify-between">
@@ -103,6 +110,45 @@ export const PropertiesPanel: React.FC = () => {
           value={selectedObject.name}
           onChange={(e) => handleUpdate((o) => ({ ...o, name: e.target.value }))}
         />
+
+        {/* Title / Label */}
+        <div className="flex flex-col gap-1.5">
+          <Input
+            label={t('editor.properties.objectTitle')}
+            value={selectedObject.title || ''}
+            onChange={(e) => handleUpdate((o) => ({ ...o, title: e.target.value }))}
+            placeholder="Ex: Switch principal, Link A, Rack 1"
+          />
+          <label className="flex items-center gap-2 cursor-pointer text-slate-300 select-none mt-1">
+            <input
+              type="checkbox"
+              checked={selectedObject.showTitle ?? true}
+              onChange={(e) => handleUpdate((o) => ({ ...o, showTitle: e.target.checked }))}
+              className="rounded border-slate-700 bg-slate-950 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+            />
+            <span className="text-[11px]">{t('editor.properties.showTitle')}</span>
+          </label>
+        </div>
+
+        {/* Line Style for Lines */}
+        {selectedObject.type === 'line' && (
+          <div className="flex flex-col gap-1.5">
+            <label className="font-semibold text-slate-300">Estilo da Linha</label>
+            <select
+              value={(selectedObject as LineObject).lineStyle || 'solid'}
+              onChange={(e) =>
+                handleUpdate((o) => ({
+                  ...o,
+                  lineStyle: e.target.value as 'solid' | 'dashed',
+                }))
+              }
+              className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+            >
+              <option value="solid">Contínua</option>
+              <option value="dashed">Pontilhada</option>
+            </select>
+          </div>
+        )}
 
         {/* Position */}
         <div className="grid grid-cols-2 gap-2">
@@ -184,6 +230,10 @@ export const PropertiesPanel: React.FC = () => {
               value={(selectedObject as TextObject).text}
               onChange={(e) => handleUpdate((o) => ({ ...o, text: e.target.value }))}
             />
+            <Button variant="outline" size="sm" onClick={handleStartTextEdit} className="mt-1">
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>{t('editor.properties.actions.editText')}</span>
+            </Button>
             <Input
               label={`${t('editor.properties.fontSize')} (${unit})`}
               type="number"

@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Stage, Layer, Rect, Circle, Line as KonvaLine, Text as KonvaText, Transformer } from 'react-konva';
+import { Stage, Layer, Rect, Circle, Line as KonvaLine, Text as KonvaText, Transformer, Group } from 'react-konva';
 import Konva from 'konva';
 import {
   CanvasObject,
@@ -14,13 +14,21 @@ import {
   createTextObject,
   createRectangleFromDrag,
   createCircleFromDrag,
-  createLineFromDrag,
+  createLineFromPoints,
   normalizeDragBounds,
   calculateCircleRadius,
-  constrainLineAngle,
+  constrainSegmentAngle,
+  appendPolylinePoint,
+  removeLastPolylinePoint,
+  deduplicateConsecutivePoints,
+  getPolylineMidpoint,
+  isValidPolyline,
+  PolylineDrawingSession,
+  PolylinePoint,
   DrawingSession,
   Viewport,
 } from '@inframap/editor-core';
+import { useTranslation } from 'react-i18next';
 import { useProjectStore } from '../../../stores/useProjectStore';
 import { useEditorStore } from '../../../stores/useEditorStore';
 
@@ -28,7 +36,20 @@ interface CanvasProps {
   onCursorMove?: (xMm: number, yMm: number) => void;
 }
 
+interface InlineTextEditSession {
+  objectId: string;
+  isNew: boolean;
+  initialText: string;
+  text: string;
+  x: number; // world x (mm)
+  y: number; // world y (mm)
+  fontSize: number; // mm
+  fontFamily: string;
+  fill: string;
+}
+
 export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
+  const { t } = useTranslation();
   const { activeProject, updateActiveProject } = useProjectStore();
   const {
     activeTool,
@@ -46,6 +67,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   const [isPanning, setIsPanning] = useState(false);
@@ -55,8 +77,14 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
   const [isAltPressed, setIsAltPressed] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
-  // Draft state for drag creation
+  // Draft state for drag creation (Rectangle & Circle)
   const [draft, setDraft] = useState<DrawingSession | null>(null);
+
+  // Multi-point polyline session for solid & dashed lines
+  const [polylineSession, setPolylineSession] = useState<PolylineDrawingSession | null>(null);
+
+  // Inline text editing state
+  const [editingText, setEditingText] = useState<InlineTextEditSession | null>(null);
 
   // Drag start positions for move tool multi-selection movement
   const dragStartWorldPosRef = useRef<Map<string, { x: number; y: number }>>(new Map());
@@ -76,30 +104,82 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
     return () => observer.disconnect();
   }, []);
 
-  // Listen for global modifier keys (Alt, Space, Escape) and window blur
+  // Listen for custom edit text event from PropertiesPanel
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleCustomEditText = (e: Event) => {
+      const customEvent = e as CustomEvent<{ objectId: string }>;
+      if (!customEvent.detail?.objectId || !activeProject) return;
+      const targetObj = activeProject.objects.find((o) => o.id === customEvent.detail.objectId);
+      if (targetObj && targetObj.type === 'text') {
+        const txt = targetObj as TextObject;
+        setEditingText({
+          objectId: txt.id,
+          isNew: false,
+          initialText: txt.text,
+          text: txt.text,
+          x: txt.x,
+          y: txt.y,
+          fontSize: txt.fontSize,
+          fontFamily: txt.fontFamily,
+          fill: txt.fill,
+        });
+      }
+    };
+
+    window.addEventListener('inframap:edit-text', handleCustomEditText);
+    return () => window.removeEventListener('inframap:edit-text', handleCustomEditText);
+  }, [activeProject]);
+
+  // Focus and select textarea on inline text edit start
+  useEffect(() => {
+    if (editingText && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+    }
+  }, [editingText?.objectId]);
+
+  // Handle keys for polyline session (Enter, Escape, Backspace)
+  useEffect(() => {
+    const handlePolylineKeys = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
-      if (e.key === 'Alt') {
-        setIsAltPressed(true);
-      }
-      if (e.key === ' ' || e.code === 'Space') {
-        setIsSpacePressed(true);
-      }
+
+      if (e.key === 'Alt') setIsAltPressed(true);
+      if (e.key === ' ' || e.code === 'Space') setIsSpacePressed(true);
+
       if (e.key === 'Escape') {
-        setDraft(null);
+        if (polylineSession) {
+          setPolylineSession(null);
+        } else {
+          setDraft(null);
+        }
+      }
+
+      if (polylineSession) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (isValidPolyline(polylineSession.fixedPoints)) {
+            finishPolylineSession(polylineSession);
+          }
+        } else if (e.key === 'Backspace' || e.key === 'Delete') {
+          e.preventDefault();
+          const remaining = removeLastPolylinePoint(polylineSession.fixedPoints);
+          if (remaining.length === 0) {
+            setPolylineSession(null);
+          } else {
+            setPolylineSession({
+              ...polylineSession,
+              fixedPoints: remaining,
+            });
+          }
+        }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') {
-        setIsAltPressed(false);
-      }
-      if (e.key === ' ' || e.code === 'Space') {
-        setIsSpacePressed(false);
-      }
+      if (e.key === 'Alt') setIsAltPressed(false);
+      if (e.key === ' ' || e.code === 'Space') setIsSpacePressed(false);
     };
 
     const handleBlur = () => {
@@ -109,20 +189,21 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
       setDraft(null);
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handlePolylineKeys);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handlePolylineKeys);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, []);
+  }, [polylineSession, activeProject]);
 
-  // Cancel draft if active tool changes
+  // Reset drawing sessions when active tool changes
   useEffect(() => {
     setDraft(null);
+    setPolylineSession(null);
   }, [activeTool]);
 
   // Update transformer node attachments when selection changes safely
@@ -191,6 +272,27 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
     visibleLayerIds.has(o.layerId)
   );
 
+  // Finish Polyline Session
+  const finishPolylineSession = (session: PolylineDrawingSession) => {
+    if (!activeProject) return;
+    const cleanedPoints = deduplicateConsecutivePoints(session.fixedPoints);
+    const lineObj = createLineFromPoints(
+      session.layerId,
+      cleanedPoints,
+      session.tool === 'dashed-line' ? 'dashed' : 'solid'
+    );
+
+    if (lineObj) {
+      pushHistory(activeProject.objects);
+      updateActiveProject((doc) => ({
+        ...doc,
+        objects: [...doc.objects, lineObj],
+      }));
+      setSelectedIds([lineObj.id]);
+    }
+    setPolylineSession(null);
+  };
+
   // Wheel zoom handler centered on pointer
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -232,7 +334,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
 
     const clickedOnEmpty = e.target === e.target.getStage() || e.target.name() === 'background-grid';
 
-    // Single click for Text tool on empty area
+    // Text tool: click on empty area to create & immediately start inline editing
     if (activeTool === 'text' && clickedOnEmpty) {
       const rawX = screenToWorld(pointer.x, viewport.scale, viewport.x);
       const rawY = screenToWorld(pointer.y, viewport.scale, viewport.y);
@@ -245,17 +347,59 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
         objects: [...doc.objects, newObj],
       }));
       setSelectedIds([newObj.id]);
+
+      setEditingText({
+        objectId: newObj.id,
+        isNew: true,
+        initialText: 'Texto',
+        text: 'Texto',
+        x: pos.x,
+        y: pos.y,
+        fontSize: newObj.fontSize,
+        fontFamily: newObj.fontFamily,
+        fill: newObj.fill,
+      });
       return;
     }
 
-    // Start drafting session for rectangle, circle, line
-    if (['rectangle', 'circle', 'line'].includes(activeTool) && clickedOnEmpty) {
+    // Polyline drawing for line or dashed-line tool
+    if ((activeTool === 'line' || activeTool === 'dashed-line') && clickedOnEmpty) {
+      const rawX = screenToWorld(pointer.x, viewport.scale, viewport.x);
+      const rawY = screenToWorld(pointer.y, viewport.scale, viewport.y);
+      let pos = { x: rawX, y: rawY };
+
+      if (polylineSession && polylineSession.fixedPoints.length > 0 && e.evt.shiftKey) {
+        const last = polylineSession.fixedPoints[polylineSession.fixedPoints.length - 1];
+        pos = constrainSegmentAngle(last, pos);
+      }
+      pos = getSnappedWorldPos(pos.x, pos.y);
+
+      if (!polylineSession) {
+        setPolylineSession({
+          tool: activeTool,
+          layerId: currentActiveLayerId,
+          fixedPoints: [pos],
+          previewPoint: pos,
+        });
+      } else {
+        const nextPoints = appendPolylinePoint(polylineSession.fixedPoints, pos);
+        setPolylineSession({
+          ...polylineSession,
+          fixedPoints: nextPoints,
+          previewPoint: pos,
+        });
+      }
+      return;
+    }
+
+    // Drag drafting session for Rectangle & Circle
+    if (['rectangle', 'circle'].includes(activeTool) && clickedOnEmpty) {
       const rawX = screenToWorld(pointer.x, viewport.scale, viewport.x);
       const rawY = screenToWorld(pointer.y, viewport.scale, viewport.y);
       const pos = getSnappedWorldPos(rawX, rawY);
 
       setDraft({
-        tool: activeTool as 'rectangle' | 'circle' | 'line',
+        tool: activeTool as 'rectangle' | 'circle',
         layerId: currentActiveLayerId,
         startX: pos.x,
         startY: pos.y,
@@ -268,6 +412,13 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
     // Clear selection on empty stage click for select or move tools
     if (clickedOnEmpty && (activeTool === 'select' || activeTool === 'move')) {
       clearSelection();
+    }
+  };
+
+  // Stage Double Click (finish polyline session)
+  const handleStageDblClick = () => {
+    if (polylineSession && isValidPolyline(polylineSession.fixedPoints)) {
+      finishPolylineSession(polylineSession);
     }
   };
 
@@ -296,19 +447,27 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
       return;
     }
 
-    // Updating active drafting session
+    // Polyline session mouse move preview point
+    if (polylineSession && pointer) {
+      const rawX = screenToWorld(pointer.x, viewport.scale, viewport.x);
+      const rawY = screenToWorld(pointer.y, viewport.scale, viewport.y);
+      let pos = { x: rawX, y: rawY };
+
+      if (polylineSession.fixedPoints.length > 0 && e.evt.shiftKey) {
+        const last = polylineSession.fixedPoints[polylineSession.fixedPoints.length - 1];
+        pos = constrainSegmentAngle(last, pos);
+      }
+      pos = getSnappedWorldPos(pos.x, pos.y);
+
+      setPolylineSession((prev) => (prev ? { ...prev, previewPoint: pos } : null));
+      return;
+    }
+
+    // Drag drafting session
     if (draft && pointer) {
       const rawX = screenToWorld(pointer.x, viewport.scale, viewport.x);
       const rawY = screenToWorld(pointer.y, viewport.scale, viewport.y);
-
-      let currentPos = getSnappedWorldPos(rawX, rawY);
-
-      if (draft.tool === 'line' && e.evt.shiftKey) {
-        currentPos = constrainLineAngle(
-          { x: draft.startX, y: draft.startY },
-          currentPos
-        );
-      }
+      const currentPos = getSnappedWorldPos(rawX, rawY);
 
       setDraft((prev) => (prev ? { ...prev, currentX: currentPos.x, currentY: currentPos.y } : null));
     }
@@ -320,7 +479,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
       setIsPanning(false);
     }
 
-    // Confirm draft session creation
+    // Confirm drag draft session creation (Rectangle, Circle)
     if (draft) {
       let newObj: CanvasObject | null = null;
       const start = { x: draft.startX, y: draft.startY };
@@ -330,8 +489,6 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
         newObj = createRectangleFromDrag(start, end, draft.layerId);
       } else if (draft.tool === 'circle') {
         newObj = createCircleFromDrag(start, end, draft.layerId);
-      } else if (draft.tool === 'line') {
-        newObj = createLineFromDrag(start, end, draft.layerId);
       }
 
       if (newObj) {
@@ -347,9 +504,57 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
     }
   };
 
+  // Inline text editing commit handler
+  const handleCommitTextEdit = () => {
+    if (!editingText || !activeProject) return;
+
+    const trimmed = editingText.text.trim();
+
+    if (trimmed.length === 0) {
+      // Empty text confirmed: cancel creation or remove empty text object
+      pushHistory(activeProject.objects);
+      updateActiveProject((doc) => ({
+        ...doc,
+        objects: doc.objects.filter((o) => o.id !== editingText.objectId),
+      }));
+      clearSelection();
+    } else {
+      // Update text object
+      pushHistory(activeProject.objects);
+      updateActiveProject((doc) => ({
+        ...doc,
+        objects: doc.objects.map((o) =>
+          o.id === editingText.objectId ? { ...o, text: editingText.text } : o
+        ),
+      }));
+    }
+
+    setEditingText(null);
+  };
+
+  // Textarea key handler
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    e.stopPropagation();
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleCommitTextEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (editingText?.isNew) {
+        // Remove newly created text object on Escape
+        updateActiveProject((doc) => ({
+          ...doc,
+          objects: doc.objects.filter((o) => o.id !== editingText.objectId),
+        }));
+        clearSelection();
+      }
+      setEditingText(null);
+    }
+  };
+
   // Drag start for objects in 'move' tool
   const handleObjectDragStart = (objId: string) => {
-    // Determine target selection
     let targets = selectedIds;
     if (!selectedIds.includes(objId)) {
       targets = [objId];
@@ -381,7 +586,6 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
 
     const initialPos = dragStartWorldPosRef.current.get(draggedId);
     if (!initialPos) {
-      // Fallback single object update
       pushHistory(activeProject.objects);
       updateActiveProject((doc) => ({
         ...doc,
@@ -477,7 +681,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
     const lines = [];
     const stepPx = canonicalGridSize * viewport.scale;
 
-    if (stepPx < 6) return null; // Avoid rendering dense grid lines when zoomed far out
+    if (stepPx < 6) return null;
 
     const startX = (viewport.x % stepPx) - stepPx;
     const startY = (viewport.y % stepPx) - stepPx;
@@ -513,7 +717,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
     return lines;
   };
 
-  // Render Draft Shape Preview during drag creation
+  // Render Draft Shape Preview during drag creation (Rectangle, Circle)
   const renderDraftPreview = () => {
     if (!draft) return null;
 
@@ -564,24 +768,129 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
       );
     }
 
-    if (draft.tool === 'line') {
-      const screenStartX = draft.startX * viewport.scale + viewport.x;
-      const screenStartY = draft.startY * viewport.scale + viewport.y;
-      const screenEndX = draft.currentX * viewport.scale + viewport.x;
-      const screenEndY = draft.currentY * viewport.scale + viewport.y;
+    return null;
+  };
 
-      return (
+  // Render Multi-point Polyline Session Preview
+  const renderPolylinePreview = () => {
+    if (!polylineSession || polylineSession.fixedPoints.length === 0) return null;
+
+    const screenFixedPoints: number[] = [];
+    polylineSession.fixedPoints.forEach((p) => {
+      screenFixedPoints.push(p.x * viewport.scale + viewport.x, p.y * viewport.scale + viewport.y);
+    });
+
+    const isDashed = polylineSession.tool === 'dashed-line';
+    const dashArray = isDashed ? [10, 6] : undefined;
+
+    const lastFixed = polylineSession.fixedPoints[polylineSession.fixedPoints.length - 1];
+    const preview = polylineSession.previewPoint || lastFixed;
+
+    const lastScreenX = lastFixed.x * viewport.scale + viewport.x;
+    const lastScreenY = lastFixed.y * viewport.scale + viewport.y;
+    const previewScreenX = preview.x * viewport.scale + viewport.x;
+    const previewScreenY = preview.y * viewport.scale + viewport.y;
+
+    return (
+      <Group listening={false}>
+        {/* Fixed polyline segments */}
+        {screenFixedPoints.length >= 4 && (
+          <KonvaLine
+            points={screenFixedPoints}
+            stroke="#3b82f6"
+            strokeWidth={3}
+            dash={dashArray}
+            listening={false}
+          />
+        )}
+
+        {/* Dynamic preview segment to mouse cursor */}
         <KonvaLine
-          points={[screenStartX, screenStartY, screenEndX, screenEndY]}
+          points={[lastScreenX, lastScreenY, previewScreenX, previewScreenY]}
           stroke="#3b82f6"
           strokeWidth={2}
           dash={[6, 4]}
+          opacity={0.8}
           listening={false}
         />
-      );
+
+        {/* Fixed point handle circles */}
+        {polylineSession.fixedPoints.map((p, idx) => (
+          <Circle
+            key={`pt-${idx}`}
+            x={p.x * viewport.scale + viewport.x}
+            y={p.y * viewport.scale + viewport.y}
+            radius={4}
+            fill="#3b82f6"
+            stroke="#ffffff"
+            strokeWidth={1.5}
+            listening={false}
+          />
+        ))}
+      </Group>
+    );
+  };
+
+  // Render Titles / Labels for Objects on Canvas
+  const renderObjectTitle = (obj: CanvasObject) => {
+    if (!obj.title || obj.title.trim().length === 0 || obj.showTitle === false) return null;
+
+    let badgeX = obj.x * viewport.scale + viewport.x;
+    let badgeY = obj.y * viewport.scale + viewport.y;
+
+    if (obj.type === 'line') {
+      const line = obj as LineObject;
+      const worldPoints: PolylinePoint[] = [];
+      for (let i = 0; i < line.points.length; i += 2) {
+        worldPoints.push({
+          x: obj.x + line.points[i],
+          y: obj.y + line.points[i + 1],
+        });
+      }
+      const mid = getPolylineMidpoint(worldPoints);
+      badgeX = mid.x * viewport.scale + viewport.x;
+      badgeY = mid.y * viewport.scale + viewport.y - 14;
+    } else if (obj.type === 'rectangle') {
+      const rect = obj as RectangleObject;
+      badgeX = (obj.x + rect.width / 2) * viewport.scale + viewport.x;
+      badgeY = obj.y * viewport.scale + viewport.y - 14;
+    } else if (obj.type === 'circle') {
+      const circ = obj as CircleObject;
+      badgeX = obj.x * viewport.scale + viewport.x;
+      badgeY = (obj.y - circ.radius) * viewport.scale + viewport.y - 14;
+    } else if (obj.type === 'text') {
+      if (obj.title === (obj as TextObject).text) return null;
+      badgeY = obj.y * viewport.scale + viewport.y - 16;
     }
 
-    return null;
+    const titleText = obj.title;
+    const approxWidth = Math.max(36, titleText.length * 6 + 12);
+
+    return (
+      <Group key={`title-${obj.id}`} x={badgeX} y={badgeY} listening={false}>
+        <Rect
+          x={-approxWidth / 2}
+          y={-10}
+          width={approxWidth}
+          height={18}
+          fill="#0f172a"
+          stroke="#334155"
+          strokeWidth={1}
+          cornerRadius={4}
+          opacity={0.9}
+        />
+        <KonvaText
+          x={-approxWidth / 2}
+          y={-7}
+          width={approxWidth}
+          text={titleText}
+          fontSize={10}
+          fontFamily="sans-serif"
+          fill="#e2e8f0"
+          align="center"
+        />
+      </Group>
+    );
   };
 
   // Cursor style class determination
@@ -591,7 +900,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
     }
     if (activeTool === 'select') return 'cursor-default';
     if (activeTool === 'move') return 'cursor-move';
-    if (['rectangle', 'circle', 'line'].includes(activeTool)) return 'cursor-crosshair';
+    if (['rectangle', 'circle', 'line', 'dashed-line'].includes(activeTool)) return 'cursor-crosshair';
     if (activeTool === 'text') return 'cursor-text';
     return 'cursor-default';
   };
@@ -601,12 +910,51 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
       ref={containerRef}
       className={`w-full h-full bg-slate-950 relative overflow-hidden select-none ${getCursorStyle()}`}
     >
+      {/* Floating Helper Banner during Polyline Creation */}
+      {(polylineSession || activeTool === 'line' || activeTool === 'dashed-line') && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 border border-blue-500/50 text-blue-200 px-3 py-1.5 rounded-full text-[11px] font-medium shadow-lg backdrop-blur pointer-events-none flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+          <span>{t('editor.instructions.polylineHelp')}</span>
+        </div>
+      )}
+
+      {/* Inline Text Area Editor Overlay */}
+      {editingText && (
+        <textarea
+          ref={textareaRef}
+          value={editingText.text}
+          onChange={(e) =>
+            setEditingText((prev) => (prev ? { ...prev, text: e.target.value } : null))
+          }
+          onKeyDown={handleTextareaKeyDown}
+          onBlur={handleCommitTextEdit}
+          style={{
+            position: 'absolute',
+            left: `${editingText.x * viewport.scale + viewport.x}px`,
+            top: `${editingText.y * viewport.scale + viewport.y}px`,
+            fontSize: `${Math.max(12, editingText.fontSize * viewport.scale)}px`,
+            fontFamily: editingText.fontFamily,
+            color: editingText.fill === 'transparent' ? '#0f172a' : editingText.fill,
+            background: 'rgba(15, 23, 42, 0.9)',
+            border: '1.5px dashed #3b82f6',
+            borderRadius: '4px',
+            padding: '2px 6px',
+            outline: 'none',
+            resize: 'both',
+            zIndex: 50,
+            minWidth: '120px',
+            minHeight: `${Math.max(12, editingText.fontSize * viewport.scale) * 1.5}px`,
+          }}
+        />
+      )}
+
       <Stage
         ref={stageRef}
         width={containerSize.width}
         height={containerSize.height}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
+        onDblClick={handleStageDblClick}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
@@ -636,8 +984,6 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
             const screenX = obj.x * viewport.scale + viewport.x;
             const screenY = obj.y * viewport.scale + viewport.y;
 
-            // In 'select' tool: objects are NOT draggable directly (only transformer resizes/rotates).
-            // In 'move' tool: objects ARE draggable if unlocked.
             const isDraggable = !isLocked && activeTool === 'move';
 
             const commonProps = {
@@ -651,7 +997,6 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
                 e.cancelBubble = true;
                 if (activeTool === 'select' || activeTool === 'move') {
                   if (e.evt.shiftKey) {
-                    // Multi-select toggle
                     if (selectedIds.includes(obj.id)) {
                       setSelectedIds(selectedIds.filter((id) => id !== obj.id));
                     } else {
@@ -660,6 +1005,23 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
                   } else {
                     setSelectedIds([obj.id]);
                   }
+                }
+              },
+              onDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
+                e.cancelBubble = true;
+                if (obj.type === 'text') {
+                  const txt = obj as TextObject;
+                  setEditingText({
+                    objectId: txt.id,
+                    isNew: false,
+                    initialText: txt.text,
+                    text: txt.text,
+                    x: txt.x,
+                    y: txt.y,
+                    fontSize: txt.fontSize,
+                    fontFamily: txt.fontFamily,
+                    fill: txt.fill,
+                  });
                 }
               },
               onDragStart: () => {
@@ -678,67 +1040,83 @@ export const Canvas: React.FC<CanvasProps> = ({ onCursorMove }) => {
             if (obj.type === 'rectangle') {
               const rect = obj as RectangleObject;
               return (
-                <Rect
-                  key={obj.id}
-                  {...commonProps}
-                  width={rect.width * viewport.scale}
-                  height={rect.height * viewport.scale}
-                  fill={rect.fill}
-                  stroke={isSelected ? '#3b82f6' : rect.stroke}
-                  strokeWidth={isSelected ? Math.max(2, rect.strokeWidth * viewport.scale) : rect.strokeWidth * viewport.scale}
-                  cornerRadius={2}
-                />
+                <React.Fragment key={obj.id}>
+                  <Rect
+                    {...commonProps}
+                    width={rect.width * viewport.scale}
+                    height={rect.height * viewport.scale}
+                    fill={rect.fill}
+                    stroke={isSelected ? '#3b82f6' : rect.stroke}
+                    strokeWidth={isSelected ? Math.max(2, rect.strokeWidth * viewport.scale) : rect.strokeWidth * viewport.scale}
+                    cornerRadius={2}
+                  />
+                  {renderObjectTitle(obj)}
+                </React.Fragment>
               );
             }
 
             if (obj.type === 'circle') {
               const circ = obj as CircleObject;
               return (
-                <Circle
-                  key={obj.id}
-                  {...commonProps}
-                  radius={circ.radius * viewport.scale}
-                  fill={circ.fill}
-                  stroke={isSelected ? '#3b82f6' : circ.stroke}
-                  strokeWidth={isSelected ? Math.max(2, circ.strokeWidth * viewport.scale) : circ.strokeWidth * viewport.scale}
-                />
+                <React.Fragment key={obj.id}>
+                  <Circle
+                    {...commonProps}
+                    radius={circ.radius * viewport.scale}
+                    fill={circ.fill}
+                    stroke={isSelected ? '#3b82f6' : circ.stroke}
+                    strokeWidth={isSelected ? Math.max(2, circ.strokeWidth * viewport.scale) : circ.strokeWidth * viewport.scale}
+                  />
+                  {renderObjectTitle(obj)}
+                </React.Fragment>
               );
             }
 
             if (obj.type === 'line') {
               const line = obj as LineObject;
               const scaledPoints = line.points.map((p) => p * viewport.scale);
+              const isDashed = line.lineStyle === 'dashed' || line.name.toLowerCase().includes('dashed');
               return (
-                <KonvaLine
-                  key={obj.id}
-                  {...commonProps}
-                  points={scaledPoints}
-                  stroke={isSelected ? '#3b82f6' : line.stroke}
-                  strokeWidth={isSelected ? Math.max(3, line.strokeWidth * viewport.scale) : line.strokeWidth * viewport.scale}
-                />
+                <React.Fragment key={obj.id}>
+                  <KonvaLine
+                    {...commonProps}
+                    points={scaledPoints}
+                    stroke={isSelected ? '#3b82f6' : line.stroke}
+                    strokeWidth={isSelected ? Math.max(3, line.strokeWidth * viewport.scale) : line.strokeWidth * viewport.scale}
+                    dash={isDashed ? [10, 6] : undefined}
+                  />
+                  {renderObjectTitle(obj)}
+                </React.Fragment>
               );
             }
 
             if (obj.type === 'text') {
               const txt = obj as TextObject;
+              // If currently inline editing this text object, render with low opacity
+              const isEditingThis = editingText?.objectId === obj.id;
               return (
-                <KonvaText
-                  key={obj.id}
-                  {...commonProps}
-                  text={txt.text}
-                  fontSize={txt.fontSize * viewport.scale}
-                  fontFamily={txt.fontFamily}
-                  fill={isSelected ? '#3b82f6' : txt.fill}
-                  align={txt.align}
-                />
+                <React.Fragment key={obj.id}>
+                  <KonvaText
+                    {...commonProps}
+                    text={txt.text}
+                    fontSize={txt.fontSize * viewport.scale}
+                    fontFamily={txt.fontFamily}
+                    fill={isSelected ? '#3b82f6' : txt.fill}
+                    align={txt.align}
+                    opacity={isEditingThis ? 0.2 : txt.opacity}
+                  />
+                  {renderObjectTitle(obj)}
+                </React.Fragment>
               );
             }
 
             return null;
           })}
 
-          {/* Draft Preview Layer */}
+          {/* Draft Preview Layer (Rectangle, Circle) */}
           {renderDraftPreview()}
+
+          {/* Multi-point Polyline Preview Layer */}
+          {renderPolylinePreview()}
 
           {/* Transformer for Selection Tool */}
           <Transformer

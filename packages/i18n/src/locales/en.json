@@ -44,6 +44,7 @@
       "rectangle": "Rectangle (R)",
       "circle": "Circle (C)",
       "line": "Line (L)",
+      "dashedLine": "Dashed line (D)",
       "text": "Text (T)"
     },
     "layers": {
@@ -58,6 +59,8 @@
       "noSelection": "No object selected",
       "noSelectionDesc": "Click an element on canvas to inspect and edit properties.",
       "objectName": "Object Name",
+      "objectTitle": "Title / label",
+      "showTitle": "Show title on canvas",
       "type": "Type",
       "positionX": "Position X",
       "positionY": "Position Y",
@@ -77,8 +80,12 @@
       "visible": "Visible",
       "actions": {
         "duplicate": "Duplicate Object",
-        "delete": "Delete Object"
+        "delete": "Delete Object",
+        "editText": "Edit text"
       }
+    },
+    "instructions": {
+      "polylineHelp": "Click to add a point. Double-click or Enter to finish. Esc to cancel. Backspace removes the last point."
     },
     "status": {
       "unsaved": "Unsaved changes",

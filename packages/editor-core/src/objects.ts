@@ -12,13 +12,16 @@ export function createRectangleObject(
   y: number,
   width = 200,
   height = 100,
-  name?: string
+  name?: string,
+  title?: string
 ): RectangleObject {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     type: 'rectangle',
     name: name || 'Retângulo',
+    title,
+    showTitle: true,
     layerId,
     x,
     y,
@@ -41,13 +44,16 @@ export function createCircleObject(
   x: number,
   y: number,
   radius = 80,
-  name?: string
+  name?: string,
+  title?: string
 ): CircleObject {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     type: 'circle',
     name: name || 'Círculo',
+    title,
+    showTitle: true,
     layerId,
     x,
     y,
@@ -68,14 +74,18 @@ export function createLineObject(
   layerId: string,
   x: number,
   y: number,
-  points: [number, number, number, number] = [0, 0, 200, 0],
-  name?: string
+  points: number[] = [0, 0, 200, 0],
+  name?: string,
+  lineStyle: 'solid' | 'dashed' = 'solid',
+  title?: string
 ): LineObject {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     type: 'line',
-    name: name || 'Linha',
+    name: name || (lineStyle === 'dashed' ? 'Linha Pontilhada' : 'Linha'),
+    title,
+    showTitle: true,
     layerId,
     x,
     y,
@@ -87,6 +97,7 @@ export function createLineObject(
     fill: 'transparent',
     opacity: 1,
     points,
+    lineStyle,
     createdAt: now,
     updatedAt: now,
   };
@@ -98,13 +109,16 @@ export function createTextObject(
   y: number,
   text = 'Rack A1',
   fontSize = 24,
-  name?: string
+  name?: string,
+  title?: string
 ): TextObject {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     type: 'text',
     name: name || 'Texto',
+    title,
+    showTitle: true,
     layerId,
     x,
     y,

@@ -7,6 +7,10 @@ import {
   constrainLineAngle,
   calculateLineLength,
   createLineFromDrag,
+  createLineFromPoints,
+  deduplicateConsecutivePoints,
+  getPolylineMidpoint,
+  isValidPolyline,
   snapToGrid,
 } from '@inframap/editor-core';
 
@@ -74,7 +78,7 @@ describe('Drawing Interaction Utilities', () => {
     });
   });
 
-  describe('Line Creation', () => {
+  describe('Line & Polyline Creation', () => {
     it('calculates line length correctly', () => {
       const length = calculateLineLength({ x: 0, y: 0 }, { x: 60, y: 80 });
       expect(length).toBe(100);
@@ -89,18 +93,76 @@ describe('Drawing Interaction Utilities', () => {
       expect(line?.points).toEqual([0, 0, 100, 150]);
     });
 
+    it('creates multi-point polyline line object', () => {
+      const points = [
+        { x: 10, y: 10 },
+        { x: 50, y: 10 },
+        { x: 50, y: 60 },
+      ];
+      const polyline = createLineFromPoints(layerId, points, 'solid');
+      expect(polyline).not.toBeNull();
+      expect(polyline?.type).toBe('line');
+      expect(polyline?.x).toBe(10);
+      expect(polyline?.y).toBe(10);
+      expect(polyline?.points).toEqual([0, 0, 40, 0, 40, 50]);
+      expect(polyline?.lineStyle).toBe('solid');
+    });
+
+    it('creates dashed line object', () => {
+      const points = [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+      ];
+      const dashed = createLineFromPoints(layerId, points, 'dashed');
+      expect(dashed).not.toBeNull();
+      expect(dashed?.lineStyle).toBe('dashed');
+    });
+
+    it('deduplicates consecutive identical points', () => {
+      const points = [
+        { x: 10, y: 10 },
+        { x: 10, y: 10 },
+        { x: 50, y: 10 },
+        { x: 50, y: 10 },
+      ];
+      const deduped = deduplicateConsecutivePoints(points);
+      expect(deduped).toEqual([
+        { x: 10, y: 10 },
+        { x: 50, y: 10 },
+      ]);
+    });
+
+    it('calculates polyline midpoint along total length', () => {
+      const points = [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+      ]; // total length 200, mid at distance 100 -> (100, 0)
+      const mid = getPolylineMidpoint(points);
+      expect(mid.x).toBeCloseTo(100);
+      expect(mid.y).toBeCloseTo(0);
+    });
+
+    it('validates polyline minimum points requirement', () => {
+      expect(isValidPolyline([{ x: 0, y: 0 }])).toBe(false);
+      expect(
+        isValidPolyline([
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
+        ])
+      ).toBe(true);
+    });
+
     it('cancels line creation below minimum length threshold', () => {
       const tinyLine = createLineFromDrag({ x: 10, y: 10 }, { x: 11, y: 10 }, layerId);
       expect(tinyLine).toBeNull();
     });
 
     it('constrains line angle to 0, 45, 90, 135 degrees when shift requested', () => {
-      // Almost horizontal (approx 5 degrees) -> snaps to 0 deg
       const constrained0 = constrainLineAngle({ x: 0, y: 0 }, { x: 100, y: 10 });
       expect(constrained0.x).toBeCloseTo(100.498, 1);
       expect(constrained0.y).toBeCloseTo(0, 1);
 
-      // Almost 45 degrees (x: 100, y: 95) -> snaps to 45 deg
       const constrained45 = constrainLineAngle({ x: 0, y: 0 }, { x: 100, y: 95 });
       const length = calculateLineLength({ x: 0, y: 0 }, { x: 100, y: 95 });
       expect(constrained45.x).toBeCloseTo(length * Math.cos(Math.PI / 4), 1);

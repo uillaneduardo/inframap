@@ -44,6 +44,7 @@
       "rectangle": "Retângulo (R)",
       "circle": "Círculo (C)",
       "line": "Linha (L)",
+      "dashedLine": "Linha pontilhada (D)",
       "text": "Texto (T)"
     },
     "layers": {
@@ -58,6 +59,8 @@
       "noSelection": "Nenhum objeto selecionado",
       "noSelectionDesc": "Clique em um elemento no canvas para visualizar e editar suas propriedades.",
       "objectName": "Nome do Objeto",
+      "objectTitle": "Título / legenda",
+      "showTitle": "Exibir título no canvas",
       "type": "Tipo",
       "positionX": "Posição X",
       "positionY": "Posição Y",
@@ -77,8 +80,12 @@
       "visible": "Visível",
       "actions": {
         "duplicate": "Duplicar Objeto",
-        "delete": "Excluir Objeto"
+        "delete": "Excluir Objeto",
+        "editText": "Editar texto"
       }
+    },
+    "instructions": {
+      "polylineHelp": "Clique para adicionar um ponto. Duplo clique ou Enter para finalizar. Esc para cancelar. Backspace remove o último ponto."
     },
     "status": {
       "unsaved": "Alterações não salvas",

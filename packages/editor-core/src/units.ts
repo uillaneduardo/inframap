@@ -77,7 +77,15 @@ export function formatUnitValue(valueMm: number, unit: ProjectUnit, decimals = 2
   return `${formatted} ${unit}`;
 }
 
-export type ToolType = 'select' | 'move' | 'pan' | 'rectangle' | 'circle' | 'line' | 'text';
+export type ToolType =
+  | 'select'
+  | 'move'
+  | 'pan'
+  | 'rectangle'
+  | 'circle'
+  | 'line'
+  | 'dashed-line'
+  | 'text';
 
 export interface Viewport {
   x: number;

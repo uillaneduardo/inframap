@@ -17,6 +17,8 @@ export const BaseCanvasObjectSchema = z.object({
   id: z.string().uuid().or(z.string().min(1)),
   type: z.enum(['rectangle', 'circle', 'line', 'text']),
   name: z.string().min(1),
+  title: z.string().optional(),
+  showTitle: z.boolean().default(true).optional(),
   layerId: z.string(),
   x: z.number(),
   y: z.number(),
@@ -44,7 +46,8 @@ export const CircleObjectSchema = BaseCanvasObjectSchema.extend({
 
 export const LineObjectSchema = BaseCanvasObjectSchema.extend({
   type: z.literal('line'),
-  points: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  points: z.array(z.number()).min(4),
+  lineStyle: z.enum(['solid', 'dashed']).default('solid').optional(),
 });
 
 export const TextObjectSchema = BaseCanvasObjectSchema.extend({

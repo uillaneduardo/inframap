@@ -35,8 +35,11 @@ inframap/
    - Operações de criação, listagem, atualização, duplicação e exclusão de projetos localmente.
 
 2. **Editor Canvas Visual e Ferramentas**:
-   - Ferramentas com responsabilidades separadas: Selecionar (`V`), Mover objeto (`M`), Mover tela/Pan (`H`), Retângulo (`R`), Círculo (`C`), Linha (`L`) e Texto (`T`).
-   - Desenho técnico por clique e arraste (`pointerdown` -> `pointermove` com preview tracejado -> `pointerup` para confirmar) com cálculo exato em milímetros (world coordinates).
+   - Ferramentas com responsabilidades separadas: Selecionar (`V`), Mover objeto (`M`), Mover tela/Pan (`H`), Retângulo (`R`), Círculo (`C`), Linha (`L`), Linha Pontilhada (`D`) e Texto (`T`).
+   - Desenho por clique e arraste para Retângulos e Círculos (`pointerdown` -> `pointermove` com preview tracejado -> `pointerup` para confirmar) com cálculo exato em milímetros (world coordinates).
+   - Desenho de linhas contínuas e pontilhadas via polilinha multi-pontos por cliques sequenciais, com tecla `Enter` ou duplo clique para concluir, `Backspace` para remover último ponto e `Esc` para cancelar.
+   - Edição de texto diretamente no canvas via área de texto flutuante ao clicar com a ferramenta Texto ou ao dar duplo clique no elemento de texto.
+   - Suporte a título/legenda exibidos sobre os objetos no canvas com opção de alternar visibilidade no painel de propriedades.
    - Validação de limite mínimo (2mm) para evitar a criação acidental de objetos de tamanho zero.
    - Separação entre visibilidade da grade (`showGrid`) e encaixe/snap na grade (`snapToGrid`), com snap desativado por padrão.
    - Suporte a tecla `Alt` para ignorar o snap temporariamente e tecla `Shift` para manter proporção e ângulos fixos.
