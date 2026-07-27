@@ -1,0 +1,116 @@
+{
+  "app": {
+    "title": "InfraMap",
+    "tagline": "Plataforma de documentação e diagramação visual de infraestrutura de TI"
+  },
+  "nav": {
+    "workspace": "Workspace",
+    "library": "Library",
+    "console": "Console",
+    "projects": "Projetos",
+    "editor": "Editor"
+  },
+  "workspace": {
+    "newProject": "Novo Projeto",
+    "importProject": "Importar Projeto",
+    "searchProjects": "Buscar projetos...",
+    "noProjects": "Nenhum projeto encontrado",
+    "noProjectsDesc": "Crie seu primeiro projeto para começar a desenhar sua infraestrutura.",
+    "createProjectTitle": "Criar Novo Projeto",
+    "editProjectTitle": "Editar Configurações do Projeto",
+    "projectName": "Nome do Projeto",
+    "description": "Descrição",
+    "unit": "Unidade de Medida",
+    "width": "Largura da Planta",
+    "height": "Altura da Planta",
+    "gridSize": "Tamanho da Grade",
+    "actions": {
+      "open": "Abrir",
+      "duplicate": "Duplicar",
+      "delete": "Excluir",
+      "export": "Exportar JSON",
+      "cancel": "Cancelar",
+      "create": "Criar Projeto",
+      "save": "Salvar"
+    },
+    "deleteConfirmTitle": "Excluir Projeto",
+    "deleteConfirmDesc": "Tem certeza que deseja excluir o projeto \"{{name}}\"? Esta ação não pode ser desfeita."
+  },
+  "editor": {
+    "tools": {
+      "select": "Selecionar (V)",
+      "move": "Mover objeto (M)",
+      "pan": "Mover tela (H)",
+      "rectangle": "Retângulo (R)",
+      "circle": "Círculo (C)",
+      "line": "Linha (L)",
+      "dashedLine": "Linha pontilhada (D)",
+      "text": "Texto (T)"
+    },
+    "layers": {
+      "title": "Camadas",
+      "add": "Nova Camada",
+      "defaultLayer": "Camada Padrão",
+      "cannotDeleteOnlyLayer": "Não é possível excluir a única camada existente.",
+      "layerName": "Nome da camada"
+    },
+    "properties": {
+      "title": "Propriedades",
+      "noSelection": "Nenhum objeto selecionado",
+      "noSelectionDesc": "Clique em um elemento no canvas para visualizar e editar suas propriedades.",
+      "objectName": "Nome do Objeto",
+      "objectTitle": "Título / legenda",
+      "showTitle": "Exibir título no canvas",
+      "type": "Tipo",
+      "positionX": "Posição X",
+      "positionY": "Posição Y",
+      "width": "Largura",
+      "height": "Altura",
+      "radius": "Raio",
+      "rotation": "Rotação",
+      "fill": "Cor de Preenchimento",
+      "stroke": "Cor do Contorno",
+      "strokeWidth": "Espessura da Linha",
+      "opacity": "Opacidade",
+      "text": "Conteúdo do Texto",
+      "fontSize": "Tamanho da Fonte",
+      "fontFamily": "Fonte",
+      "align": "Alinhamento",
+      "locked": "Bloqueado",
+      "visible": "Visível",
+      "actions": {
+        "duplicate": "Duplicar Objeto",
+        "delete": "Excluir Objeto",
+        "editText": "Editar texto"
+      }
+    },
+    "instructions": {
+      "polylineHelp": "Clique para adicionar um ponto. Duplo clique ou Enter para finalizar. Esc para cancelar. Backspace remove o último ponto."
+    },
+    "status": {
+      "unsaved": "Alterações não salvas",
+      "saving": "Salvando...",
+      "saved": "Salvo localmente",
+      "error": "Erro ao salvar",
+      "zoom": "Zoom",
+      "showGrid": "Exibir grade",
+      "snapToGrid": "Encaixar na grade",
+      "fitToScreen": "Enquadrar"
+    },
+    "actions": {
+      "undo": "Desfazer (Ctrl+Z)",
+      "redo": "Refazer (Ctrl+Y)",
+      "exportJson": "Exportar JSON",
+      "exportPng": "Exportar PNG",
+      "backToProjects": "Voltar aos Projetos"
+    }
+  },
+  "library": {
+    "title": "Library (Modelos & Símbolos)",
+    "description": "O repositório de modelos de equipamentos, racks, portas, conectores e cabos será disponibilizado em etapas futuras."
+  },
+  "console": {
+    "title": "Console Administrativo",
+    "description": "Gestão de organizações, usuários, permissões e auditoria SaaS."
+  }
+}

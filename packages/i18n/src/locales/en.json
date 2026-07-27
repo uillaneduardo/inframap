@@ -1,0 +1,116 @@
+{
+  "app": {
+    "title": "InfraMap",
+    "tagline": "IT infrastructure documentation and visual diagramming platform"
+  },
+  "nav": {
+    "workspace": "Workspace",
+    "library": "Library",
+    "console": "Console",
+    "projects": "Projects",
+    "editor": "Editor"
+  },
+  "workspace": {
+    "newProject": "New Project",
+    "importProject": "Import Project",
+    "searchProjects": "Search projects...",
+    "noProjects": "No projects found",
+    "noProjectsDesc": "Create your first project to start mapping your infrastructure.",
+    "createProjectTitle": "Create New Project",
+    "editProjectTitle": "Edit Project Settings",
+    "projectName": "Project Name",
+    "description": "Description",
+    "unit": "Unit of Measurement",
+    "width": "Layout Width",
+    "height": "Layout Height",
+    "gridSize": "Grid Size",
+    "actions": {
+      "open": "Open",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "export": "Export JSON",
+      "cancel": "Cancel",
+      "create": "Create Project",
+      "save": "Save"
+    },
+    "deleteConfirmTitle": "Delete Project",
+    "deleteConfirmDesc": "Are you sure you want to delete project \"{{name}}\"? This action cannot be undone."
+  },
+  "editor": {
+    "tools": {
+      "select": "Select (V)",
+      "move": "Move object (M)",
+      "pan": "Pan canvas (H)",
+      "rectangle": "Rectangle (R)",
+      "circle": "Circle (C)",
+      "line": "Line (L)",
+      "dashedLine": "Dashed line (D)",
+      "text": "Text (T)"
+    },
+    "layers": {
+      "title": "Layers",
+      "add": "New Layer",
+      "defaultLayer": "Default Layer",
+      "cannotDeleteOnlyLayer": "Cannot delete the only existing layer.",
+      "layerName": "Layer name"
+    },
+    "properties": {
+      "title": "Properties",
+      "noSelection": "No object selected",
+      "noSelectionDesc": "Click an element on canvas to inspect and edit properties.",
+      "objectName": "Object Name",
+      "objectTitle": "Title / label",
+      "showTitle": "Show title on canvas",
+      "type": "Type",
+      "positionX": "Position X",
+      "positionY": "Position Y",
+      "width": "Width",
+      "height": "Height",
+      "radius": "Radius",
+      "rotation": "Rotation",
+      "fill": "Fill Color",
+      "stroke": "Stroke Color",
+      "strokeWidth": "Line Thickness",
+      "opacity": "Opacity",
+      "text": "Text Content",
+      "fontSize": "Font Size",
+      "fontFamily": "Font Family",
+      "align": "Alignment",
+      "locked": "Locked",
+      "visible": "Visible",
+      "actions": {
+        "duplicate": "Duplicate Object",
+        "delete": "Delete Object",
+        "editText": "Edit text"
+      }
+    },
+    "instructions": {
+      "polylineHelp": "Click to add a point. Double-click or Enter to finish. Esc to cancel. Backspace removes the last point."
+    },
+    "status": {
+      "unsaved": "Unsaved changes",
+      "saving": "Saving...",
+      "saved": "Saved locally",
+      "error": "Error saving",
+      "zoom": "Zoom",
+      "showGrid": "Show grid",
+      "snapToGrid": "Snap to grid",
+      "fitToScreen": "Fit to Screen"
+    },
+    "actions": {
+      "undo": "Undo (Ctrl+Z)",
+      "redo": "Redo (Ctrl+Y)",
+      "exportJson": "Export JSON",
+      "exportPng": "Export PNG",
+      "backToProjects": "Back to Projects"
+    }
+  },
+  "library": {
+    "title": "Library (Models & Symbols)",
+    "description": "Equipment models, racks, ports, connectors, and cables repository will be implemented in future phases."
+  },
+  "console": {
+    "title": "Admin Console",
+    "description": "Organization management, users, permissions, and SaaS auditing."
+  }
+}

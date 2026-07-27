@@ -1,0 +1,17 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@inframap/domain": ["../../packages/domain/src"],
+      "@inframap/project-schema": ["../../packages/project-schema/src"],
+      "@inframap/editor-core": ["../../packages/editor-core/src"],
+      "@inframap/ui": ["../../packages/ui/src"],
+      "@inframap/i18n": ["../../packages/i18n/src"]
+    },
+    "noEmit": true
+  },
+  "include": ["src/**/*", "../../packages/*/src/**/*"]
+}
